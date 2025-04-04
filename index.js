@@ -5,9 +5,13 @@ require('dotenv').config();
 
 const app = express();
 const prisma = new PrismaClient();
+const taskRoutes = require('./routes/taskRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/tasks', taskRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/', (req, res) => {
     res.send('Task Manager API is running 🚀');
