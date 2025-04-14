@@ -1,29 +1,41 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
 const prisma = new PrismaClient();
 
-// POST /users - Create new user
-const createUser = async (req, res) => {
-  const { email, password } = req.body;
+const SECRET = 'your-secret-key';
 
-
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password required' });
-  }
-
+// POST /users/register
+const register = async (req, res) => {
+  const { name, email, password } = req.body;
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await prisma.user.create({
-      data: { email, password },
+      data: { name, email, password: hashedPassword },
     });
-    res.status(201).json(newUser);
+    res.status(201).json({ message: 'User registered', user: newUser });
   } catch (err) {
-    res.status(500).json({ error: 'User creation failed', detail: err.message });
+    res.status(400).json({ error: 'Registration failed', detail: err.message });
   }
 };
 
-// GET /users - Get all users
-const getUsers = async (req, res) => {
-  const users = await prisma.user.findMany({ include: { tasks: true } });
-  res.json(users);
+// POST /users/login
+const login = async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: '1h' });
+
+    res.json({ message: 'Login successful', token });
+  } catch (err) {
+    res.status(500).json({ error: 'Login failed', detail: err.message });
+  }
 };
 
-module.exports = { createUser, getUsers };
+module.exports = { register, login };
